@@ -232,3 +232,62 @@ ggplot(results) +
 # Much more processing has to be done, but clearly doable thanks
 # to RSelenium!
 
+
+####################################################################
+############## SEE BELOW FOR PROCESSING XML FILES (offline)
+####################################################################
+###library(XML2R)
+### this may not be the case now, but the version of XML2R on cran
+### I use couldn't accommodate "offline" (XML) files ....
+### that is, the XML2R::urlsToDocs function expected a, well...
+### "url" (not a file)
+### Check github location of XML2R to see if changes were made
+### (I remember seeing something like that...)
+### but since I had already made a workaround (below), then
+### might as well not complicate things.
+### So, if one wants to use XML2R::XML2Obs to retrieve an
+### XML file on a filesystem, then these versions of 2 functions
+### will work.
+### xmlfile <- "path-and-filename-etc..xml"
+### XML2Obs2(xmlfile)
+
+
+XML2Obs2 <- function (urls, xpath, append.value = TRUE, as.equiv = TRUE, 
+    url.map = FALSE, async = FALSE, quiet = FALSE) 
+{
+    if (missing(xpath)) 
+        xpath <- "/"
+    docs <- urlsToDocs2(urls, async = async, quiet = quiet)
+    valid.urls <- sapply(docs, function(x) attr(x, "XMLsource"))
+    nodes <- docsToNodes(docs, xpath)
+    rm(docs)
+    gc()
+    l <- nodesToList(nodes)
+    rm(nodes)
+    gc()
+    obs <- listsToObs(l, urls = valid.urls, append.value = append.value, 
+        as.equiv = as.equiv, url.map = url.map)
+    return(obs)
+}
+
+urlsToDocs2 <- function (urls, async = TRUE, quiet = FALSE) 
+{
+    urls <- urls[vapply(urls, file.exists, logical(1), USE.NAMES = FALSE)]
+    if (async && length(urls) > 1) 
+        message("Performing asynchronous download. Please be patient.")
+    #text <- getURL(urls, async = async)
+    text <- urls
+    docs <- NULL
+    for (i in seq_along(text)) {
+        if (!quiet) 
+            cat(urls[i], "\n")
+        doc <- plyr::try_default(xmlTreeParse(text[i], isURL=FALSE,useInternalNodes = TRUE),NULL,quiet=TRUE)
+        if (!is.null(doc)) {
+            attr(doc, "XMLsource") <- urls[i]
+            docs <- c(docs, doc)
+        }
+    }
+    return(docs)
+}
+
+
